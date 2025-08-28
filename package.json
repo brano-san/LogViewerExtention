@@ -1,0 +1,88 @@
+{
+  "name": "logviewer",
+  "displayName": "LogViewer",
+  "description": "Просмотрщик JSON-логов с форматированием, подсветкой уровней и фильтрами (Filter/Exclude).",
+  "version": "0.0.1",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:logviewer.open",
+    "onCommand:logviewer.showFilters"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "logviewer.open",
+        "title": "LogViewer: Open (JSON → formatted)"
+      },
+      {
+        "command": "logviewer.showFilters",
+        "title": "LogViewer: Filters"
+      }
+    ],
+    "languages": [
+      {
+        "id": "logviewer",
+        "extensions": [
+          ".logview"
+        ],
+        "aliases": [
+          "LogViewer"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "logviewer",
+        "scopeName": "source.logviewer",
+        "path": "./syntaxes/logviewer.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "LogViewer Theme",
+        "uiTheme": "vs-dark",
+        "path": "./themes/LogViewer-color-theme.json"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "logviewer.open",
+          "group": "navigation@9",
+          "when": "resourceExtname == .json"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "logviewer.showFilters",
+          "group": "navigation@99",
+          "when": "resourceLangId == logviewer"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "logviewer.open",
+          "group": "navigation@9",
+          "when": "resourceExtname == .json"
+        }
+      ]
+    }
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/vscode": "^1.88.0",
+    "typescript": "^5.4.0"
+  }
+}

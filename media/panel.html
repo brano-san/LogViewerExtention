@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LogViewer Filters</title>
+  <style>
+    body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 12px; }
+    .row { display: flex; gap: 8px; margin-bottom: 10px; }
+    input[type="text"] { flex: 1; padding: 6px 8px; border: 1px solid var(--vscode-input-border); background: var(--vscode-input-background); color: var(--vscode-input-foreground); }
+    small { opacity: .7; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <input id="filter" type="text" placeholder="Filter: все слова должны встречаться (через пробел)">
+  </div>
+  <div class="row">
+    <input id="exclude" type="text" placeholder="Exclude: хотя бы одно слово — исключает строку">
+  </div>
+  <small>Фильтрация регистронезависимая, работает по подстрокам.</small>
+  <script>
+    const vscode = acquireVsCodeApi();
+    function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+    const send = debounce(() => {
+      const filter = document.getElementById('filter').value;
+      const exclude = document.getElementById('exclude').value;
+      vscode.postMessage({ type: 'setFilters', filter, exclude });
+    }, 200);
+    document.getElementById('filter').addEventListener('input', send);
+    document.getElementById('exclude').addEventListener('input', send);
+
+    window.addEventListener('message', (e) => {
+      const msg = e.data || {};
+      if(msg.type === 'init'){
+        document.getElementById('filter').value = msg.filter || '';
+        document.getElementById('exclude').value = msg.exclude || '';
+      }
+    });
+  </script>
+</body>
+</html>
