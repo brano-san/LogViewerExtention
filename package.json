@@ -41,11 +41,11 @@
             },
             {
                 "command": "logviewer.filterInclude",
-                "title": "Filter Include"
+                "title": "Filter Text By Selection"
             },
             {
                 "command": "logviewer.filterExclude",
-                "title": "Filter Exclude"
+                "title": "Exclude Text By Selection"
             }
         ],
         "configuration": {
