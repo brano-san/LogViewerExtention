@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { filterController } from './filterController';
 import { formatLogEntry, getMaxWidthsFromDoc } from './logParser';
 import { applyDecorations } from './decorator';
 
