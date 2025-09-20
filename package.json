@@ -90,9 +90,7 @@
                     "LogViewer"
                 ],
                 "extensions": [
-                    ".logjson",
-                    ".jsonl",
-                    ".log"
+                    ".jsonlog"
                 ]
             }
         ]

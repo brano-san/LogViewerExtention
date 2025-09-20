@@ -7,7 +7,7 @@ import { applyDecorations } from './decorator';
 async function openFullLog() {
   const uris = await vscode.window.showOpenDialog({
     canSelectMany: false,
-    filters: { "JSON logs": ["json"], "All files": ["*"] },
+    filters: { "JSON logs": ["json", "jsonlog"], "All files": ["*"] },
   });
   if (!uris || uris.length === 0) return;
 
