@@ -2,9 +2,17 @@
     "name": "logviewer",
     "displayName": "LogViewer",
     "description": "Просмотр и фильтрация логов из json, с подсветкой уровней",
-    "version": "0.0.1",
+    "publisher": "brano-san",
+    "version": "1.0.0",
+    "categories": [
+        "Other"
+    ],
     "engines": {
-        "vscode": "^1.60.0"
+        "vscode": "^1.78.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/brano-san/LogViewerExtention"
     },
     "activationEvents": [
         "onCommand:logviewer.openLog",
