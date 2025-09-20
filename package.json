@@ -1,8 +1,8 @@
 {
-    "name": "logviewer",
-    "displayName": "LogViewer",
+    "name": "jsonlogviewer",
+    "displayName": "JsonLogViewer",
     "description": "Просмотр и фильтрация логов из json, с подсветкой уровней",
-    "publisher": "brano-san",
+    "publisher": "branosan",
     "version": "1.0.0",
     "categories": [
         "Other"
