@@ -87,6 +87,12 @@ export function activate(context: vscode.ExtensionContext) {
       const selection = editor.document.getText(editor.selection);
       if (!selection) return vscode.window.showInformationMessage("Выделите текст для исключения");
       filterAndFormatLog(undefined, selection);
+    }),
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (!editor) return;
+      if (editor.document.languageId === 'logviewer') {
+        applyDecorations(editor);
+      }
     })
   );
 }
