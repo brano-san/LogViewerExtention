@@ -12,14 +12,32 @@
     ],
     "main": "./out/extension.js",
     "contributes": {
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "logviewer.filterInclude",
+                    "when": "editorHasSelection",
+                    "group": "navigation"
+                },
+                {
+                    "command": "logviewer.filterExclude",
+                    "when": "editorHasSelection",
+                    "group": "navigation"
+                }
+            ]
+        },
         "commands": [
             {
                 "command": "logviewer.openLog",
                 "title": "LogViewer: Open formatted log"
             },
             {
-                "command": "logviewer.setFilter",
-                "title": "LogViewer: Filter"
+                "command": "logviewer.filterInclude",
+                "title": "Filter Include"
+            },
+            {
+                "command": "logviewer.filterExclude",
+                "title": "Filter Exclude"
             }
         ],
         "configuration": {

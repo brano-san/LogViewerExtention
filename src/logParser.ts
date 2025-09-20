@@ -28,6 +28,24 @@ function normalizeLogLevel(level: string | undefined): string {
   }
 }
 
+export function getMaxWidthsFromDoc(doc: import('vscode').TextDocument) {
+  let widthModule = 0;
+  let widthCategory = 0;
+
+  for (let i = 0; i < doc.lineCount; i++) {
+    const line = doc.lineAt(i).text;
+    try {
+      const obj = JSON.parse(line);
+      widthModule = Math.max(widthModule, (obj.ModuleName || '').length);
+      widthCategory = Math.max(widthCategory, (obj.Category || '').length);
+    } catch {
+      // игнорируем строки, которые не JSON
+    }
+  }
+
+  return { widthModule, widthCategory };
+}
+
 export function formatLogEntry(
   entry: any,
   widths: { widthModule: number; widthCategory: number }
@@ -38,7 +56,7 @@ export function formatLogEntry(
     ":" +
     dt.getMilliseconds().toString().padStart(3, "0");
 
-  const moduleStr   = `[ ${String(entry.ModuleName || "").padEnd(widths.widthModule)} ]`;
+  const moduleStr = `[ ${String(entry.ModuleName || "").padEnd(widths.widthModule)} ]`;
   const categoryStr = `[ ${String(entry.Category || "").padEnd(widths.widthCategory)} ]`;
 
   // нормализуем уровень
@@ -51,7 +69,6 @@ export function formatLogEntry(
     params.push(`${key}[${JSON.stringify(entry[key])}]`);
   }
 
-  return `[${timeStr}] ${moduleStr} ${categoryStr}${levelStr} ${
-    entry.Title || ""
-  } ${params.join(" ")}`.trim();
+  return `[${timeStr}] ${moduleStr} ${categoryStr}${levelStr} ${entry.Title || ""
+    } ${params.join(" ")}`.trim();
 }
