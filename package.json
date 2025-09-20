@@ -1,88 +1,84 @@
 {
-  "name": "logviewer",
-  "displayName": "LogViewer",
-  "description": "Просмотрщик JSON-логов с форматированием, подсветкой уровней и фильтрами (Filter/Exclude).",
-  "version": "0.0.1",
-  "publisher": "your-name",
-  "engines": {
-    "vscode": "^1.88.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onCommand:logviewer.open",
-    "onCommand:logviewer.showFilters"
-  ],
-  "contributes": {
-    "commands": [
-      {
-        "command": "logviewer.open",
-        "title": "LogViewer: Open (JSON → formatted)"
-      },
-      {
-        "command": "logviewer.showFilters",
-        "title": "LogViewer: Filters"
-      }
+    "name": "logviewer",
+    "displayName": "LogViewer",
+    "description": "Просмотр и фильтрация логов из json, с подсветкой уровней",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "activationEvents": [
+        "onCommand:logviewer.openLog",
+        "onLanguage:logviewer"
     ],
-    "languages": [
-      {
-        "id": "logviewer",
-        "extensions": [
-          ".logview"
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "logviewer.openLog",
+                "title": "LogViewer: Open formatted log"
+            },
+            {
+                "command": "logviewer.setFilter",
+                "title": "LogViewer: Filter"
+            }
         ],
-        "aliases": [
-          "LogViewer"
+        "configuration": {
+            "title": "LogViewer",
+            "properties": {
+                "logviewer.colorTrace": {
+                    "type": "string",
+                    "default": "rgba(136,136,136,0.2)",
+                    "description": "Цвет подсветки для [T] (Trace)"
+                },
+                "logviewer.colorDebug": {
+                    "type": "string",
+                    "default": "rgba(0,170,255,0.2)",
+                    "description": "Цвет подсветки для [D] (Debug)"
+                },
+                "logviewer.colorInfo": {
+                    "type": "string",
+                    "default": "rgba(0,255,0,0.2)",
+                    "description": "Цвет подсветки для [I] (Info)"
+                },
+                "logviewer.colorWarn": {
+                    "type": "string",
+                    "default": "rgba(255,255,0,0.2)",
+                    "description": "Цвет подсветки для [W] (Warning)"
+                },
+                "logviewer.colorError": {
+                    "type": "string",
+                    "default": "rgba(255,0,0,0.2)",
+                    "description": "Цвет подсветки для [E] (Error)"
+                },
+                "logviewer.colorCritical": {
+                    "type": "string",
+                    "default": "rgba(255,0,255,0.2)",
+                    "description": "Цвет подсветки для [C] (Critical)"
+                }
+            }
+        },
+        "languages": [
+            {
+                "id": "logviewer",
+                "aliases": [
+                    "LogViewer"
+                ],
+                "extensions": [
+                    ".logjson",
+                    ".jsonl",
+                    ".log"
+                ]
+            }
         ]
-      }
-    ],
-    "grammars": [
-      {
-        "language": "logviewer",
-        "scopeName": "source.logviewer",
-        "path": "./syntaxes/logviewer.tmLanguage.json"
-      }
-    ],
-    "themes": [
-      {
-        "label": "LogViewer Theme",
-        "uiTheme": "vs-dark",
-        "path": "./themes/LogViewer-color-theme.json"
-      }
-    ],
-    "menus": {
-      "explorer/context": [
-        {
-          "command": "logviewer.open",
-          "group": "navigation@9",
-          "when": "resourceExtname == .json"
-        }
-      ],
-      "editor/title": [
-        {
-          "command": "logviewer.showFilters",
-          "group": "navigation@99",
-          "when": "resourceLangId == logviewer"
-        }
-      ],
-      "editor/context": [
-        {
-          "command": "logviewer.open",
-          "group": "navigation@9",
-          "when": "resourceExtname == .json"
-        }
-      ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./"
+    },
+    "devDependencies": {
+        "@types/node": "^14.14.0",
+        "@types/vscode": "^1.78.0",
+        "typescript": "^4.5.0",
+        "vscode-test": "^1.6.1"
     }
-  },
-  "main": "./out/extension.js",
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
-  "devDependencies": {
-    "@types/node": "^24.3.0",
-    "@types/vscode": "^1.88.0",
-    "typescript": "^5.4.0"
-  }
 }

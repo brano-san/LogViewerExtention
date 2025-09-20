@@ -1,114 +1,71 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import { convertLog, computeWidths } from './formatter';
+import { applyDecorations } from './decorator';
+import { filterController } from './filterController';
+import { formatLogEntry } from './logParser';
 
-type Filters = { include: string[]; exclude: string[] };
+export function getMaxWidthsFromDoc(doc: import('vscode').TextDocument) {
+  let widthModule = 0;
+  let widthCategory = 0;
 
-function splitWords(s: string | undefined): string[] {
-  if (!s) return [];
-  return s.split(/[\s]+/).map(w => w.trim().toLowerCase()).filter(Boolean);
-}
-
-function applyFilters(lines: string[], f: Filters): string[] {
-  const inc = f.include;
-  const exc = f.exclude;
-  return lines.filter(line => {
-    const l = line.toLowerCase();
-    // exclude: any match removes
-    if (exc.length && exc.some(w => l.includes(w))) return false;
-    // include: all must match
-    if (inc.length && !inc.every(w => l.includes(w))) return false;
-    return true;
-  });
-}
-
-class LogViewerProvider implements vscode.TextDocumentContentProvider {
-  private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-  readonly onDidChange = this._onDidChange.event;
-
-  private cache: Map<string, { original: any[]; formatted: string[]; widths: {widthModule:number;widthCategory:number} }> = new Map();
-  private filters: Map<string, Filters> = new Map(); // key: fsPath
-
-  async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-    const fsPath = uri.fsPath;
-    if (!this.cache.has(fsPath)) {
-      const content = fs.readFileSync(fsPath, 'utf8');
-      const entries: any[] = [];
-      for (const line of content.split(/\r?\n/)) {
-        const t = line.trim();
-        if (!t) continue;
-        try { entries.push(JSON.parse(t)); } catch { /* ignore */ }
-      }
-      const widths = computeWidths(entries);
-      const formatted = entries.map(e => convertLog(e, widths.widthModule, widths.widthCategory));
-      this.cache.set(fsPath, { original: entries, formatted, widths });
-      if (!this.filters.has(fsPath)) this.filters.set(fsPath, { include: [], exclude: [] });
+  for (let i = 0; i < doc.lineCount; i++) {
+    const line = doc.lineAt(i).text;
+    try {
+      const obj = JSON.parse(line);
+      widthModule = Math.max(widthModule, (obj.ModuleName || '').length);
+      widthCategory = Math.max(widthCategory, (obj.Category || '').length);
+    } catch {
+      // игнорируем строки, которые не JSON
     }
-    const f = this.filters.get(fsPath)!;
-    const formatted = this.cache.get(fsPath)!.formatted;
-    const shown = applyFilters(formatted, f);
-    return shown.join('\n');
   }
 
-  setFilters(fsPath: string, filter: string, exclude: string) {
-    this.filters.set(fsPath, { include: splitWords(filter), exclude: splitWords(exclude) });
-    const uri = vscode.Uri.parse(`logviewer:${encodeURIComponent(fsPath)}`);
-    this._onDidChange.fire(uri);
-  }
+  return { widthModule, widthCategory };
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const provider = new LogViewerProvider();
-  context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('logviewer', provider));
+  context.subscriptions.push(
+    vscode.commands.registerCommand("logviewer.openLog", async () => {
+      // 1) выбираем файл через диалог
+      const uris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { "JSON logs": ["json"], "All files": ["*"] },
+      });
+      if (!uris || uris.length === 0) return;
 
-  const ensureOpen = async (uri?: vscode.Uri) => {
-    let target = uri;
-    if (!target) {
-      const active = vscode.window.activeTextEditor?.document.uri;
-      if (active && active.scheme === 'file' && active.path.toLowerCase().endsWith('.json')) {
-        target = active;
+      const doc = await vscode.workspace.openTextDocument(uris[0]);
+
+      // 2) считаем ширины по всему документу
+      const widths = getMaxWidthsFromDoc(doc);
+
+      // 3) форматируем все строки
+      const outLines: string[] = [];
+      for (let i = 0; i < doc.lineCount; i++) {
+        const line = doc.lineAt(i).text;
+        if (!line) {
+          outLines.push("");
+          continue;
+        }
+        try {
+          const obj = JSON.parse(line);
+          outLines.push(formatLogEntry(obj, widths));
+        } catch {
+          outLines.push(line);
+        }
       }
-    }
-    if (!target) {
-      vscode.window.showErrorMessage('Укажите JSON-файл: вызовите команду из контекстного меню проводника.');
-      return;
-    }
-    const vuri = vscode.Uri.parse(`logviewer:${encodeURIComponent(target.path)}`);
-    const doc = await vscode.workspace.openTextDocument(vuri);
-    await vscode.languages.setTextDocumentLanguage(doc, 'logviewer');
-    await vscode.window.showTextDocument(doc, { preview: false });
-    return { vuri, fsPath: target.path };
-  };
 
-  context.subscriptions.push(vscode.commands.registerCommand('logviewer.open', async (uri?: vscode.Uri) => {
-    await ensureOpen(uri);
-  }));
+      // 4) открываем новый документ с форматированным выводом
+      const formattedDoc = await vscode.workspace.openTextDocument({
+        content: outLines.join("\n"),
+        language: "logviewer",
+      });
 
-  context.subscriptions.push(vscode.commands.registerCommand('logviewer.showFilters', async () => {
-    const active = vscode.window.activeTextEditor?.document;
-    if (!active || active.uri.scheme !== 'logviewer') {
-      vscode.window.showInformationMessage('Откройте лог в LogViewer, затем вызовите Filters.');
-      return;
-    }
-    const fsPath = active.uri.fsPath;
+      const editor = await vscode.window.showTextDocument(formattedDoc, {
+        preview: false,
+      });
 
-    const panel = vscode.window.createWebviewPanel('logviewerFilters', 'LogViewer Filters', vscode.ViewColumn.Beside, {
-      enableScripts: true
-    });
-
-    const htmlPath = vscode.Uri.file(path.join(context.extensionPath, 'media', 'panel.html'));
-    let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
-    panel.webview.html = html;
-
-    panel.webview.postMessage({ type: 'init', filter: '', exclude: '' });
-
-    panel.webview.onDidReceiveMessage(msg => {
-      if (msg?.type === 'setFilters') {
-        provider.setFilters(fsPath, msg.filter || '', msg.exclude || '');
-      }
-    });
-  }));
+      // 5) применяем подсветку логов
+      applyDecorations(editor);
+    })
+  );
 }
 
-export function deactivate() {}
+export function deactivate() { }
