@@ -1,34 +1,48 @@
 import * as vscode from "vscode";
 import { filterController } from "./filterController";
 
+// Храним созданные декорации, чтобы не создавать новые каждый раз
+const decorationsMap: { [lvl: string]: vscode.TextEditorDecorationType } = {};
+
 function getLogLevelColors(): Record<string, string> {
   const config = vscode.workspace.getConfiguration("logviewer");
   return {
     T: config.get<string>("colorTrace") || "rgba(255,255,255,0.05)",
-    D: config.get<string>("colorDebug") || "rgba(50, 127, 186, 1)",
+    D: config.get<string>("colorDebug") || "rgba(50,127,186,0.2)",
     I: config.get<string>("colorInfo") || "rgba(0,255,0,0.1)",
-    W: config.get<string>("colorWarn") || "rgba(246, 255, 169, 0.6)",
-    E: config.get<string>("colorError") || "rgba(176, 55, 66, 1)",
-    C: config.get<string>("colorCritical") || "rgba(197, 15, 31, 1)",
+    W: config.get<string>("colorWarn") || "rgba(246,255,169,0.2)",
+    E: config.get<string>("colorError") || "rgba(176,55,66,0.2)",
+    C: config.get<string>("colorCritical") || "rgba(197,15,31,0.2)",
   };
 }
 
-export function applyDecorations(editor: vscode.TextEditor) {
+function initDecorations() {
   const logLevelColors = getLogLevelColors();
-  const regLevel = /\[([TDIWEC])\]/;
-  const filters = filterController.getCurrentFilters();
+  ["T", "D", "I", "W", "E", "C"].forEach(lvl => {
+    if (!decorationsMap[lvl]) {
+      decorationsMap[lvl] = vscode.window.createTextEditorDecorationType({
+        backgroundColor: logLevelColors[lvl],
+        isWholeLine: true,
+      });
+    }
+  });
+}
 
-  const decorationsMap: { [lvl: string]: vscode.TextEditorDecorationType } = {};
-  ["T", "D", "I", "W", "E", "C"].forEach(
-    (lvl) =>
-    (decorationsMap[lvl] = vscode.window.createTextEditorDecorationType({
-      backgroundColor: logLevelColors[lvl],
-      isWholeLine: true,
-    }))
-  );
+export function applyDecorations(editor: vscode.TextEditor) {
+
+  initDecorations(); // инициализация только один раз
 
   const decs: { [lvl: string]: vscode.Range[] } = {};
-  ["T", "D", "I", "W", "E", "C"].forEach((lvl) => (decs[lvl] = []));
+  ["T", "D", "I", "W", "E", "C"].forEach(lvl => decs[lvl] = []);
+
+  Object.entries(decs).forEach(([lvl, ranges]) => {
+    // очищаем старые декорации
+    editor.setDecorations(decorationsMap[lvl], []);
+  });
+
+
+  const regLevel = /\[([TDIWEC])\]/;
+  const filters = filterController.getCurrentFilters();
 
   for (let i = 0; i < editor.document.lineCount; i++) {
     const line = editor.document.lineAt(i).text;
@@ -37,9 +51,10 @@ export function applyDecorations(editor: vscode.TextEditor) {
     if (m) decs[m[1]].push(new vscode.Range(i, 0, i, line.length));
   }
 
-  Object.entries(decs).forEach(([lvl, ranges]) =>
-    editor.setDecorations(decorationsMap[lvl], ranges)
-  );
+  Object.entries(decs).forEach(([lvl, ranges]) => {
+    // применяем уже существующую декорацию
+    editor.setDecorations(decorationsMap[lvl], ranges);
+  });
 }
 
 function passesFilters(
