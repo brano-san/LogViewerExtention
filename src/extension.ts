@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { formatLogEntry, getMaxWidthsFromDoc } from './logParser';
-import { applyDecorations } from './decorator';
+import { applyDecorations, decorationsMap } from './decorator';
 
 // Открытие всего лога
 async function openFullLog() {
@@ -133,6 +133,25 @@ export function activate(context: vscode.ExtensionContext) {
       const selection = editor.document.getText(editor.selection);
       if (!selection) return vscode.window.showInformationMessage("Выделите текст для исключения");
       filterAndFormatLog(undefined, selection);
+    }),
+
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration("logviewer")) {
+        console.log("[LogViewer] Settings changed, recreating decorations");
+
+        // Удаляем старые
+        Object.values(decorationsMap).forEach(dec => dec.dispose());
+
+        // Очищаем map, чтобы initDecorations создал новые с новыми цветами
+        for (const key in decorationsMap) delete decorationsMap[key];
+
+        // Обновляем декорации для всех открытых редакторов logviewer
+        vscode.window.visibleTextEditors.forEach(editor => {
+          if (editor.document.languageId === 'logviewer') {
+            applyDecorations(editor);
+          }
+        });
+      }
     }),
 
     vscode.window.onDidChangeActiveTextEditor(editor => {

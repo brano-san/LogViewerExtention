@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { filterController } from "./filterController";
 
 // Храним созданные декорации, чтобы не создавать новые каждый раз
-const decorationsMap: { [lvl: string]: vscode.TextEditorDecorationType } = {};
+export const decorationsMap: { [lvl: string]: vscode.TextEditorDecorationType } = {};
 
 function getLogLevelColors(): Record<string, string> {
   const config = vscode.workspace.getConfiguration("logviewer");
