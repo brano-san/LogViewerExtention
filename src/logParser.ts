@@ -1,16 +1,24 @@
 export function formatValue(value: any): string {
-  if (typeof value === 'object' && value !== null) {
+  if (value === null || value === undefined) return String(value);
+
+  if (Array.isArray(value)) {
+    return value.map(formatValue).join(' ');
+  }
+
+  if (typeof value === 'object') {
+    // Если объект с Type/Value, раскрываем Value
     if ('Type' in value && 'Value' in value) {
-      return formatValue(value['Value']);
+      return formatValue(value.Value);
     }
+
+    // Иначе рекурсивно форматируем все поля
     return Object.entries(value)
       .map(([k, v]) => `${k}[${formatValue(v)}]`)
       .join(' ');
-  } else if (Array.isArray(value)) {
-    return value.map(formatValue).join(' ');
-  } else {
-    return String(value);
   }
+
+  // Для примитивов просто строка
+  return String(value);
 }
 
 function normalizeLogLevel(level: string | undefined): string {
@@ -46,29 +54,19 @@ export function getMaxWidthsFromDoc(doc: import('vscode').TextDocument) {
   return { widthModule, widthCategory };
 }
 
-export function formatLogEntry(
-  entry: any,
-  widths: { widthModule: number; widthCategory: number }
-): string {
+export function formatLogEntry(entry: any, widths: { widthModule: number; widthCategory: number; }): string {
   const dt = new Date(entry.Date);
-  const timeStr =
-    dt.toTimeString().split(" ")[0] +
-    ":" +
-    dt.getMilliseconds().toString().padStart(3, "0");
+  const timeStr = dt.toTimeString().split(' ')[0] + ':' + dt.getMilliseconds().toString().padStart(3, '0');
 
-  const moduleStr = `[ ${String(entry.ModuleName || "").padEnd(widths.widthModule)} ]`;
-  const categoryStr = `[ ${String(entry.Category || "").padEnd(widths.widthCategory)} ]`;
-
-  // нормализуем уровень
+  const moduleStr   = `[ ${entry.ModuleName?.padEnd(widths.widthModule)} ]`;
+  const categoryStr = `[ ${entry.Category?.padEnd(widths.widthCategory)} ]`;
   const levelStr = `[${normalizeLogLevel(entry.LogLevel)}]`;
 
   const params: string[] = [];
   for (const key in entry) {
-    if (["Date", "ModuleName", "Category", "LogLevel", "Title"].includes(key))
-      continue;
-    params.push(`${key}[${JSON.stringify(entry[key])}]`);
+    if (['Date','ModuleName','Category','LogLevel','Title'].includes(key)) continue;
+    params.push(`${key}[${formatValue(entry[key])}]`);
   }
 
-  return `[${timeStr}] ${moduleStr} ${categoryStr}${levelStr} ${entry.Title || ""
-    } ${params.join(" ")}`.trim();
+  return `[${timeStr}] ${moduleStr} ${categoryStr}${levelStr} ${entry.Title || ''} ${params.join(' ')}`.trim();
 }
