@@ -22,7 +22,7 @@ async function openFullLog() {
     }
     try {
       const obj = JSON.parse(line);
-      outLines.push(formatLogEntry(obj, widths));
+      outLines.push(formatLogEntry(obj, widths, line));
     } catch {
       outLines.push(line);
     }
@@ -57,7 +57,7 @@ function filterAndFormatLog(include?: string, exclude?: string) {
 
     try {
       const obj = JSON.parse(line);
-      outLines.push(formatLogEntry(obj, widths));
+      outLines.push(formatLogEntry(obj, widths, line));
     } catch {
       outLines.push(line);
     }
@@ -155,7 +155,7 @@ export function activate(context: vscode.ExtensionContext) {
         const line = doc.lineAt(i).text;
         try {
           const obj = JSON.parse(line);
-          outLines.push(formatLogEntry(obj, widths));
+          outLines.push(formatLogEntry(obj, widths, line));
         } catch {
           outLines.push(line);
         }
@@ -188,7 +188,7 @@ async function processJsonLog(doc: vscode.TextDocument) {
     const line = doc.lineAt(i).text;
     try {
       const obj = JSON.parse(line);
-      outLines.push(formatLogEntry(obj, widths));
+      outLines.push(formatLogEntry(obj, widths, line));
     } catch {
       outLines.push(line);
     }

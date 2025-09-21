@@ -54,17 +54,46 @@ export function getMaxWidthsFromDoc(doc: import('vscode').TextDocument) {
   return { widthModule, widthCategory };
 }
 
-export function formatLogEntry(entry: any, widths: { widthModule: number; widthCategory: number; }): string {
-  const dt = new Date(entry.Date);
-  const timeStr = dt.toTimeString().split(' ')[0] + ':' + dt.getMilliseconds().toString().padStart(3, '0');
+function extractFirstDate(raw: string): Date | null {
+  // ищем первую "Date":"..."
+  const match = raw.match(/"Date"\s*:\s*"([^"]+)"/);
+  if (!match) return null;
 
-  const moduleStr   = `[ ${entry.ModuleName?.padEnd(widths.widthModule)} ]`;
-  const categoryStr = `[ ${entry.Category?.padEnd(widths.widthCategory)} ]`;
+  const candidate = match[1];
+  const dt = new Date(candidate);
+
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+export function formatLogEntry(
+  entry: any,
+  widths: { widthModule: number; widthCategory: number; },
+  rawLine?: string
+): string {
+  // Берём первую дату из сырой строки
+  let dt: Date | null = null;
+  if (rawLine) {
+    dt = extractFirstDate(rawLine);
+  }
+  // если не нашли или она битая — fallback
+  if (!dt && entry.Date) {
+    const tmp = new Date(entry.Date);
+    if (!isNaN(tmp.getTime())) {
+      dt = tmp;
+    }
+  }
+
+  const timeStr = dt
+    ? dt.toTimeString().split(' ')[0] + ':' + dt.getMilliseconds().toString().padStart(3, '0')
+    : '??:??:??:???';
+
+  const moduleStr = `[ ${(entry.ModuleName || '').padEnd(widths.widthModule)} ]`;
+  const categoryStr = `[ ${(entry.Category || '').padEnd(widths.widthCategory)} ]`;
   const levelStr = `[${normalizeLogLevel(entry.LogLevel)}]`;
 
   const params: string[] = [];
   for (const key in entry) {
-    if (['Date','ModuleName','Category','LogLevel','Title'].includes(key)) continue;
+    if (['Date', 'ModuleName', 'Category', 'LogLevel', 'Title'].includes(key)) continue;
     params.push(`${key}[${formatValue(entry[key])}]`);
   }
 
