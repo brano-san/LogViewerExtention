@@ -3,7 +3,7 @@
     "displayName": "JsonLogViewer",
     "description": "Просмотр и фильтрация логов из json, с подсветкой уровней",
     "publisher": "branosan",
-    "version": "1.0.2",
+    "version": "1.0.4",
     "categories": [
         "Other"
     ],
@@ -40,6 +40,10 @@
                 "title": "LogViewer: Open formatted log"
             },
             {
+                "command": "logviewer.processCurrentFile",
+                "title": "LogViewer: Format current .jsonlog file"
+            },
+            {
                 "command": "logviewer.filterInclude",
                 "title": "Filter Text By Selection"
             },
@@ -58,7 +62,7 @@
                 },
                 "logviewer.colorDebug": {
                     "type": "string",
-                    "default": "rgba(50,127,186,0.2)",
+                    "default": "rgba(25, 70, 120, 1)",
                     "description": "Цвет подсветки для [D] (Debug)"
                 },
                 "logviewer.colorInfo": {
@@ -68,7 +72,7 @@
                 },
                 "logviewer.colorWarn": {
                     "type": "string",
-                    "default": "rgba(255,255,0,0.2)",
+                    "default": "rgba(246, 255, 169, 0.5)",
                     "description": "Цвет подсветки для [W] (Warning)"
                 },
                 "logviewer.colorError": {
@@ -90,7 +94,8 @@
                     "LogViewer"
                 ],
                 "extensions": [
-                    ".jsonlog"
+                    ".jsonlog",
+                    ".json"
                 ]
             }
         ]

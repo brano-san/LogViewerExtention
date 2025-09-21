@@ -71,6 +71,42 @@ function filterAndFormatLog(include?: string, exclude?: string) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  vscode.window.visibleTextEditors.forEach(editor => {
+    const doc = editor.document;
+    if (doc.fileName.endsWith(".jsonlog") || doc.fileName.endsWith(".json")) {
+      console.log("[LogViewer] Found already opened .jsonlog on activation:", doc.fileName);
+      processJsonLog(doc);
+    }
+  });
+
+  const statusButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  statusButton.text = "$(file-text) FormatLog";
+  statusButton.command = "logviewer.processCurrentFile";
+  statusButton.tooltip = "Форматировать текущий файл лога";
+  statusButton.hide();
+  context.subscriptions.push(statusButton);
+
+  function updateStatusButton(editor?: vscode.TextEditor) {
+    if (!editor) {
+      console.log("[LogViewer] Нет активного редактора");
+      statusButton.hide();
+      return;
+    }
+
+    console.log("[LogViewer] Активный файл:", editor.document.fileName);
+
+    if (editor.document.fileName.endsWith(".jsonlog") || editor.document.fileName.endsWith(".json")) {
+      console.log("[LogViewer] Показать кнопку для:", editor.document.fileName);
+      statusButton.show();
+    } else {
+      console.log("[LogViewer] Скрыть кнопку для:", editor.document.fileName);
+      statusButton.hide();
+    }
+  }
+
+  // следим за переключением редакторов
+  vscode.window.onDidChangeActiveTextEditor(updateStatusButton);
+
   context.subscriptions.push(
     vscode.commands.registerCommand("logviewer.openLog", openFullLog),
 
@@ -80,6 +116,15 @@ export function activate(context: vscode.ExtensionContext) {
       const selection = editor.document.getText(editor.selection);
       if (!selection) return vscode.window.showInformationMessage("Выделите текст для фильтрации");
       filterAndFormatLog(selection, undefined);
+    }),
+
+    vscode.commands.registerCommand("logviewer.processCurrentFile", () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && (editor.document.fileName.endsWith(".jsonlog") || editor.document.fileName.endsWith(".json"))) {
+        processJsonLog(editor.document);
+      } else {
+        vscode.window.showInformationMessage("LogViewer: Откройте .jsonlog файл, чтобы запустить форматирование");
+      }
     }),
 
     vscode.commands.registerCommand("logviewer.filterExclude", () => {
@@ -131,4 +176,30 @@ export function activate(context: vscode.ExtensionContext) {
     })
 
   );
+}
+
+async function processJsonLog(doc: vscode.TextDocument) {
+  console.log("[LogViewer] Processing .jsonlog:", doc.fileName);
+
+  const widths = getMaxWidthsFromDoc(doc);
+  const outLines: string[] = [];
+
+  for (let i = 0; i < doc.lineCount; i++) {
+    const line = doc.lineAt(i).text;
+    try {
+      const obj = JSON.parse(line);
+      outLines.push(formatLogEntry(obj, widths));
+    } catch {
+      outLines.push(line);
+    }
+  }
+
+  const tempDoc = await vscode.workspace.openTextDocument({
+    content: outLines.join("\n"),
+    language: "logviewer"
+  });
+
+  const tempEditor = await vscode.window.showTextDocument(tempDoc, { preview: false });
+  console.log("[LogViewer] Decorations applied to temporary document");
+  applyDecorations(tempEditor);
 }
