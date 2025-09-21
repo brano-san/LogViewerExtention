@@ -73,6 +73,7 @@ function filterAndFormatLog(include?: string, exclude?: string) {
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("logviewer.openLog", openFullLog),
+
     vscode.commands.registerCommand("logviewer.filterInclude", () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
@@ -80,6 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!selection) return vscode.window.showInformationMessage("Выделите текст для фильтрации");
       filterAndFormatLog(selection, undefined);
     }),
+
     vscode.commands.registerCommand("logviewer.filterExclude", () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
@@ -87,11 +89,46 @@ export function activate(context: vscode.ExtensionContext) {
       if (!selection) return vscode.window.showInformationMessage("Выделите текст для исключения");
       filterAndFormatLog(undefined, selection);
     }),
+
     vscode.window.onDidChangeActiveTextEditor(editor => {
       if (!editor) return;
       if (editor.document.languageId === 'logviewer') {
         applyDecorations(editor);
       }
+    }),
+
+    vscode.workspace.onDidOpenTextDocument(async doc => {
+      if (!doc.fileName.endsWith('.jsonlog')) return; // Только исходные файлы
+      if (doc.languageId !== 'logviewer') return;
+
+      console.log('[LogViewer] .jsonlog opened, preparing temporary document');
+
+      const widths = getMaxWidthsFromDoc(doc);
+      const outLines: string[] = [];
+
+      for (let i = 0; i < doc.lineCount; i++) {
+        const line = doc.lineAt(i).text;
+        try {
+          const obj = JSON.parse(line);
+          outLines.push(formatLogEntry(obj, widths));
+        } catch {
+          outLines.push(line);
+        }
+      }
+
+      // Создаём временный документ без расширения
+      const tempDoc = await vscode.workspace.openTextDocument({
+        content: outLines.join('\n'),
+        language: 'logviewer'
+      });
+
+      const tempEditor = await vscode.window.showTextDocument(tempDoc, { preview: false });
+
+      console.log('[LogViewer] Applying decorations to temporary document');
+      applyDecorations(tempEditor);
+
+      // Исходный .jsonlog файл остаётся нетронутым
     })
+
   );
 }

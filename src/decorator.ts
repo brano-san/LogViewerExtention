@@ -30,7 +30,7 @@ function initDecorations() {
 
 export function applyDecorations(editor: vscode.TextEditor) {
 
-  initDecorations(); // инициализация только один раз
+  if (Object.keys(decorationsMap).length === 0) initDecorations();
 
   const decs: { [lvl: string]: vscode.Range[] } = {};
   ["T", "D", "I", "W", "E", "C"].forEach(lvl => decs[lvl] = []);
