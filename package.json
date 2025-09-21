@@ -3,7 +3,7 @@
     "displayName": "JsonLogViewer",
     "description": "Просмотр и фильтрация логов из json, с подсветкой уровней",
     "publisher": "branosan",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "categories": [
         "Other"
     ],
@@ -53,17 +53,17 @@
             "properties": {
                 "logviewer.colorTrace": {
                     "type": "string",
-                    "default": "rgba(136,136,136,0.2)",
+                    "default": "rgba(255,255,255,0.05)",
                     "description": "Цвет подсветки для [T] (Trace)"
                 },
                 "logviewer.colorDebug": {
                     "type": "string",
-                    "default": "rgba(0,170,255,0.2)",
+                    "default": "rgba(50,127,186,0.2)",
                     "description": "Цвет подсветки для [D] (Debug)"
                 },
                 "logviewer.colorInfo": {
                     "type": "string",
-                    "default": "rgba(0,255,0,0.2)",
+                    "default": "rgba(0,255,0,0.1)",
                     "description": "Цвет подсветки для [I] (Info)"
                 },
                 "logviewer.colorWarn": {
@@ -73,12 +73,12 @@
                 },
                 "logviewer.colorError": {
                     "type": "string",
-                    "default": "rgba(255,0,0,0.2)",
+                    "default": "rgba(176,55,66,0.2)",
                     "description": "Цвет подсветки для [E] (Error)"
                 },
                 "logviewer.colorCritical": {
                     "type": "string",
-                    "default": "rgba(255,0,255,0.2)",
+                    "default": "rgba(197,15,31,0.2)",
                     "description": "Цвет подсветки для [C] (Critical)"
                 }
             }
