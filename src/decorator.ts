@@ -11,8 +11,8 @@ function getLogLevelColors(): Record<string, string> {
     D: config.get<string>("colorDebug") || "rgba(25, 70, 120, 1)",
     I: config.get<string>("colorInfo") || "rgba(0,255,0,0.1)",
     W: config.get<string>("colorWarn") || "rgba(246, 255, 169, 0.5)",
-    E: config.get<string>("colorError") || "rgba(176,55,66,0.2)",
-    C: config.get<string>("colorCritical") || "rgba(197,15,31,0.2)",
+    E: config.get<string>("colorError") || "rgba(176,55,66,0.8)",
+    C: config.get<string>("colorCritical") || "rgba(197,15,31,0.8)",
   };
 }
 

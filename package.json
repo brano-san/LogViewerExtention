@@ -77,12 +77,12 @@
                 },
                 "logviewer.colorError": {
                     "type": "string",
-                    "default": "rgba(176,55,66,0.2)",
+                    "default": "rgba(176,55,66,0.8)",
                     "description": "Цвет подсветки для [E] (Error)"
                 },
                 "logviewer.colorCritical": {
                     "type": "string",
-                    "default": "rgba(197,15,31,0.2)",
+                    "default": "rgba(197,15,31,0.8)",
                     "description": "Цвет подсветки для [C] (Critical)"
                 }
             }
