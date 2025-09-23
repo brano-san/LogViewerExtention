@@ -3,7 +3,7 @@
     "displayName": "JsonLogViewer",
     "description": "Просмотр и фильтрация логов из json, с подсветкой уровней",
     "publisher": "branosan",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "categories": [
         "Other"
     ],
