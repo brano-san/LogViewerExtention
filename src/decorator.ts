@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { filterController } from "./filterController";
 
-// Храним созданные декорации, чтобы не создавать новые каждый раз
 export const decorationsMap: { [lvl: string]: vscode.TextEditorDecorationType } = {};
 
 function getLogLevelColors(): Record<string, string> {
@@ -17,8 +16,7 @@ function getLogLevelColors(): Record<string, string> {
 }
 
 function initDecorations() {
-  const logLevelColors = getLogLevelColors();
-  ["T", "D", "I", "W", "E", "C"].forEach(lvl => {
+  const logLevelColors = getLogLevelColors();["T", "D", "I", "W", "E", "C"].forEach(lvl => {
     if (!decorationsMap[lvl]) {
       decorationsMap[lvl] = vscode.window.createTextEditorDecorationType({
         backgroundColor: logLevelColors[lvl],
@@ -29,30 +27,33 @@ function initDecorations() {
 }
 
 export function applyDecorations(editor: vscode.TextEditor) {
-
   if (Object.keys(decorationsMap).length === 0) initDecorations();
 
-  const decs: { [lvl: string]: vscode.Range[] } = {};
-  ["T", "D", "I", "W", "E", "C"].forEach(lvl => decs[lvl] = []);
-
-  Object.entries(decs).forEach(([lvl, ranges]) => {
-    // очищаем старые декорации
-    editor.setDecorations(decorationsMap[lvl], []);
-  });
-
+  const decs: { [lvl: string]: vscode.Range[] } = {};["T", "D", "I", "W", "E", "C"].forEach(lvl => decs[lvl] = []);
 
   const regLevel = /\[([TDIWEC])\]/;
   const filters = filterController.getCurrentFilters();
 
-  for (let i = 0; i < editor.document.lineCount; i++) {
+  // ОПТИМИЗАЦИЯ ДЛЯ БОЛЬШИХ ФАЙЛОВ: Красим только видимую область
+  const visibleRanges = editor.visibleRanges;
+  if (visibleRanges.length === 0) return;
+
+  // Берем с запасом 100 строк сверху и снизу, чтобы при скролле не было мерцаний
+  const startLine = Math.max(0, visibleRanges[0].start.line - 100);
+  const endLine = Math.min(
+    editor.document.lineCount - 1, 
+    visibleRanges[visibleRanges.length - 1].end.line + 100
+  );
+
+  for (let i = startLine; i <= endLine; i++) {
     const line = editor.document.lineAt(i).text;
     if (!passesFilters(line, filters)) continue;
     const m = regLevel.exec(line);
     if (m) decs[m[1]].push(new vscode.Range(i, 0, i, line.length));
   }
 
+  // Применяем новые декорации (VS Code автоматически очистит старые)
   Object.entries(decs).forEach(([lvl, ranges]) => {
-    // применяем уже существующую декорацию
     editor.setDecorations(decorationsMap[lvl], ranges);
   });
 }
