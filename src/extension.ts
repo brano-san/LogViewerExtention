@@ -5,21 +5,19 @@ import * as path from 'path';
 import * as os from 'os';
 import { formatLogEntry, getMaxWidthsFromDoc } from './logParser';
 import { applyDecorations, decorationsMap } from './decorator';
+import { LFSProvider } from './lfsProvider';
 
-// Функция проверки расширения файла на основе настроек пользователя
 function isTargetExtension(fileName: string): boolean {
   const config = vscode.workspace.getConfiguration("logviewer");
-  const exts = config.get<string[]>("targetExtensions") ||[".jsonlog", ".json"];
+  const exts = config.get<string[]>("targetExtensions") || [".jsonlog", ".json"];
   return exts.some(ext => fileName.toLowerCase().endsWith(ext.toLowerCase()));
 }
 
-// Асинхронная потоковая обработка огромных файлов (>50MB)
 async function processLargeFileStream(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let widthModule = 0;
     let widthCategory = 0;
 
-    // Проход 1: Собираем максимальные ширины
     const rl1 = readline.createInterface({
       input: fs.createReadStream(filePath),
       crlfDelay: Infinity
@@ -34,7 +32,6 @@ async function processLargeFileStream(filePath: string): Promise<string> {
     });
 
     rl1.on('close', () => {
-      // Проход 2: Форматируем и пишем во временный файл
       const fileName = path.basename(filePath);
       const tempFilePath = path.join(os.tmpdir(), `fmt_${Date.now()}_${fileName}.logviewer`);
       const writeStream = fs.createWriteStream(tempFilePath);
@@ -57,15 +54,28 @@ async function processLargeFileStream(filePath: string): Promise<string> {
         writeStream.end();
         resolve(tempFilePath);
       });
-
       rl2.on('error', reject);
     });
-
     rl1.on('error', reject);
   });
 }
 
-// Открытие всего лога (диалог)
+// Умное открытие с проверкой лимита VS Code (>50мб)
+async function openDocumentWithLfsCheck(filePath: string) {
+  const stat = fs.statSync(filePath);
+  const isLarge = stat.size > 50 * 1024 * 1024; // 50MB
+
+  const uri = isLarge
+    ? vscode.Uri.file(filePath).with({ scheme: 'logviewer-lfs' })
+    : vscode.Uri.file(filePath);
+
+  const doc = await vscode.workspace.openTextDocument(uri);
+  vscode.languages.setTextDocumentLanguage(doc, 'logviewer');
+
+  const editor = await vscode.window.showTextDocument(doc, { preview: false });
+  applyDecorations(editor);
+}
+
 async function openFullLog() {
   const uris = await vscode.window.showOpenDialog({
     canSelectMany: false,
@@ -75,23 +85,21 @@ async function openFullLog() {
 
   vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
-    title: "LogViewer: Форматирование файла...",
+    title: "LogViewer: Обработка файла...",
     cancellable: false
   }, async () => {
     const tempFilePath = await processLargeFileStream(uris[0].fsPath);
-    const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
-    const editor = await vscode.window.showTextDocument(tempDoc, { preview: false });
-    applyDecorations(editor);
+    await openDocumentWithLfsCheck(tempFilePath);
   });
 }
 
 async function processJsonLog(doc: vscode.TextDocument) {
   console.log("[LogViewer] Processing log:", doc.fileName);
 
-  // Если файл не сохранен физически - используем старый метод (ОЗУ)
   if (doc.isUntitled) {
+    // Для несохраненных вкладок берём данные прямо из ОЗУ
     const widths = getMaxWidthsFromDoc(doc);
-    const outLines: string[] =[];
+    const outLines: string[] = [];
 
     for (let i = 0; i < doc.lineCount; i++) {
       const line = doc.lineAt(i).text;
@@ -107,32 +115,32 @@ async function processJsonLog(doc: vscode.TextDocument) {
       content: outLines.join("\n"),
       language: "logviewer"
     });
+
     const tempEditor = await vscode.window.showTextDocument(tempDoc, { preview: false });
     applyDecorations(tempEditor);
 
   } else {
-    // Для физических файлов используем потоки (защита от краша >50мб файлов)
+    // Это физический файл на диске
+    const fsPath = doc.uri.fsPath;
+
     vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: "LogViewer: Обработка лога...",
+      title: "LogViewer: Форматирование (чтение потоком)...",
       cancellable: false
     }, async () => {
-      const tempFilePath = await processLargeFileStream(doc.uri.fsPath);
-      const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
-      const editor = await vscode.window.showTextDocument(tempDoc, { preview: false });
-      applyDecorations(editor);
+      const tempFilePath = await processLargeFileStream(fsPath);
+      await openDocumentWithLfsCheck(tempFilePath);
     });
   }
 }
 
-// Фильтрация
 function filterAndFormatLog(include?: string, exclude?: string) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return vscode.window.showErrorMessage('Откройте файл лога');
 
   const doc = editor.document;
   const widths = getMaxWidthsFromDoc(doc);
-  const outLines: string[] =[];
+  const outLines: string[] = [];
 
   for (let i = 0; i < doc.lineCount; i++) {
     const line = doc.lineAt(i).text;
@@ -156,16 +164,20 @@ function filterAndFormatLog(include?: string, exclude?: string) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  // Обработка при перезапуске VS Code
+  const lfsProvider = new LFSProvider();
+  context.subscriptions.push(
+    vscode.workspace.registerFileSystemProvider('logviewer-lfs', lfsProvider, { isReadonly: true, isCaseSensitive: true })
+  );
+
+  context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((doc) => {
+    if (doc.uri.scheme === 'logviewer-lfs') lfsProvider.onDidCloseTextDocument(doc.uri);
+  }));
+
   vscode.window.visibleTextEditors.forEach(editor => {
     const doc = editor.document;
-    // Если это восстановленный сгенерированный лог
-    if (doc.languageId === 'logviewer') {
+    if (doc.fileName.endsWith('.logviewer') || doc.uri.scheme === 'logviewer-lfs') {
       applyDecorations(editor);
-    }
-    // Если это целевой файл лога, обрабатываем его
-    else if (isTargetExtension(doc.fileName)) {
-      console.log("[LogViewer] Found target log on activation:", doc.fileName);
+    } else if (isTargetExtension(doc.fileName)) {
       processJsonLog(doc);
     }
   });
@@ -173,28 +185,16 @@ export function activate(context: vscode.ExtensionContext) {
   const statusButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusButton.text = "$(file-text) FormatLog";
   statusButton.command = "logviewer.processCurrentFile";
-  statusButton.tooltip = "Форматировать текущий файл лога";
   statusButton.hide();
   context.subscriptions.push(statusButton);
 
-  function updateStatusButton(editor?: vscode.TextEditor) {
-    if (!editor) {
-      statusButton.hide();
-      return;
-    }
-    if (isTargetExtension(editor.document.fileName)) {
-      statusButton.show();
-    } else {
-      statusButton.hide();
-    }
-  }
+  vscode.window.onDidChangeActiveTextEditor(editor => {
+    if (!editor) { statusButton.hide(); return; }
+    if (isTargetExtension(editor.document.fileName)) statusButton.show();
+    else statusButton.hide();
 
-  vscode.window.onDidChangeActiveTextEditor(updateStatusButton);
-
-  // Обработка скролла: красим только видимую зону для защиты от лагов в файлах >50мб
-  vscode.window.onDidChangeTextEditorVisibleRanges(e => {
-    if (e.textEditor.document.languageId === 'logviewer') {
-      applyDecorations(e.textEditor);
+    if (editor.document.languageId === 'logviewer' || editor.document.uri.scheme === 'logviewer-lfs') {
+      applyDecorations(editor);
     }
   });
 
@@ -204,48 +204,40 @@ export function activate(context: vscode.ExtensionContext) {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
       const selection = editor.document.getText(editor.selection);
-      if (!selection) return vscode.window.showInformationMessage("Выделите текст");
-      filterAndFormatLog(selection, undefined);
+      if (selection) filterAndFormatLog(selection, undefined);
     }),
     vscode.commands.registerCommand("logviewer.processCurrentFile", () => {
       const editor = vscode.window.activeTextEditor;
-      if (editor && isTargetExtension(editor.document.fileName)) {
-        processJsonLog(editor.document);
-      } else {
-        vscode.window.showInformationMessage("LogViewer: Откройте целевой файл лога");
-      }
+      if (editor && isTargetExtension(editor.document.fileName)) processJsonLog(editor.document);
     }),
     vscode.commands.registerCommand("logviewer.filterExclude", () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
       const selection = editor.document.getText(editor.selection);
-      if (!selection) return vscode.window.showInformationMessage("Выделите текст");
-      filterAndFormatLog(undefined, selection);
+      if (selection) filterAndFormatLog(undefined, selection);
     }),
 
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration("logviewer")) {
         Object.values(decorationsMap).forEach(dec => dec.dispose());
         for (const key in decorationsMap) delete decorationsMap[key];
-
         vscode.window.visibleTextEditors.forEach(editor => {
           if (editor.document.languageId === 'logviewer') applyDecorations(editor);
         });
       }
     }),
 
-    vscode.window.onDidChangeActiveTextEditor(editor => {
-      if (!editor) return;
-      if (editor.document.languageId === 'logviewer') {
-        applyDecorations(editor);
-      }
-    }),
-
     vscode.workspace.onDidOpenTextDocument(async doc => {
-      if (doc.languageId === 'logviewer') return; // Игнорируем уже отформатированные
-      if (!isTargetExtension(doc.fileName)) return; // Проверка по настройкам
+      // 1. Игнорируем временные отформатированные файлы на диске
+      if (doc.fileName.endsWith('.logviewer')) return;
+      // 2. Игнорируем файлы, открытые через обходчик больших файлов
+      if (doc.uri.scheme === 'logviewer-lfs') return;
+      // 3. Игнорируем файлы, которые мы генерируем из ОЗУ
+      if (doc.isUntitled && doc.languageId === 'logviewer') return;
 
-      console.log('[LogViewer] Target log opened, preparing document');
+      // Теперь проверяем, является ли это файл целевым (например, .jsonlog)
+      if (!isTargetExtension(doc.fileName)) return;
+
       processJsonLog(doc);
     })
   );

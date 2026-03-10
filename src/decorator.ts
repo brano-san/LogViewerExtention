@@ -29,27 +29,21 @@ function initDecorations() {
 export function applyDecorations(editor: vscode.TextEditor) {
   if (Object.keys(decorationsMap).length === 0) initDecorations();
 
-  const decs: { [lvl: string]: vscode.Range[] } = {};["T", "D", "I", "W", "E", "C"].forEach(lvl => decs[lvl] = []);
+  const decs: { [lvl: string]: vscode.Range[] } = {};
+  ["T", "D", "I", "W", "E", "C"].forEach(lvl => decs[lvl] = []);
 
   const regLevel = /\[([TDIWEC])\]/;
   const filters = filterController.getCurrentFilters();
 
-  // ОПТИМИЗАЦИЯ ДЛЯ БОЛЬШИХ ФАЙЛОВ: Красим только видимую область
-  const visibleRanges = editor.visibleRanges;
-  if (visibleRanges.length === 0) return;
-
-  // Берем с запасом 100 строк сверху и снизу, чтобы при скролле не было мерцаний
-  const startLine = Math.max(0, visibleRanges[0].start.line - 100);
-  const endLine = Math.min(
-    editor.document.lineCount - 1, 
-    visibleRanges[visibleRanges.length - 1].end.line + 100
-  );
-
-  for (let i = startLine; i <= endLine; i++) {
+  // РАСКРАШИВАЕМ ВЕСЬ ФАЙЛ ЦЕЛИКОМ (Без visibleRanges)
+  for (let i = 0; i < editor.document.lineCount; i++) {
     const line = editor.document.lineAt(i).text;
     if (!passesFilters(line, filters)) continue;
+    
     const m = regLevel.exec(line);
-    if (m) decs[m[1]].push(new vscode.Range(i, 0, i, line.length));
+    if (m) {
+      decs[m[1]].push(new vscode.Range(i, 0, i, line.length));
+    }
   }
 
   // Применяем новые декорации (VS Code автоматически очистит старые)
