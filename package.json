@@ -60,7 +60,8 @@
                     "type": "array",
                     "default": [
                         ".jsonlog",
-                        ".json"
+                        ".json",
+                        ".coffin"
                     ],
                     "description": "Список расширений файлов, на которые расширение будет реагировать (например: ['.jsonlog', '.json', '.coffin'])",
                     "items": {
