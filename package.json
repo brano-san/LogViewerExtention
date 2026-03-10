@@ -38,11 +38,11 @@
         "commands": [
             {
                 "command": "logviewer.openLog",
-                "title": "LogViewer: Open formatted log"
+                "title": "LogViewer: Open Log File"
             },
             {
                 "command": "logviewer.processCurrentFile",
-                "title": "LogViewer: Format current file"
+                "title": "LogViewer: Format Current File"
             },
             {
                 "command": "logviewer.filterInclude",
