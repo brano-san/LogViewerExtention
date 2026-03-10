@@ -83,14 +83,31 @@ async function openFullLog() {
   });
   if (!uris || uris.length === 0) return;
 
-  vscode.window.withProgress({
-    location: vscode.ProgressLocation.Notification,
-    title: "LogViewer: Обработка файла...",
-    cancellable: false
-  }, async () => {
-    const tempFilePath = await processLargeFileStream(uris[0].fsPath);
-    await openDocumentWithLfsCheck(tempFilePath);
-  });
+  const uri = uris[0];
+
+  // 1. Открываем оригинальный файл встроенной командой VS Code.
+  // Это НЕ загружает файл в память расширения, вкладка просто появляется визуально,
+  // что полностью обходит краш "Files above 50MB cannot be synchronized".
+  await vscode.commands.executeCommand('vscode.open', uri);
+
+  // 2. Узнаем размер файла
+  const stat = fs.statSync(uri.fsPath);
+  const isLarge = stat.size > 50 * 1024 * 1024; // 50MB
+
+  // 3. VS Code отключает событие onDidOpenTextDocument для файлов > 50MB.
+  // Поэтому, если файл огромный ИЛИ у него нестандартное расширение (например, .txt),
+  // мы запускаем фоновое чтение и форматирование файла вручную.
+  // Если же файл < 50MB и имеет нужное расширение (.jsonlog), сработает наш хук внизу файла.
+  if (isLarge || !isTargetExtension(uri.fsPath)) {
+    vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "LogViewer: Обработка файла...",
+      cancellable: false
+    }, async () => {
+      const tempFilePath = await processLargeFileStream(uri.fsPath);
+      await openDocumentWithLfsCheck(tempFilePath);
+    });
+  }
 }
 
 async function processJsonLog(doc: vscode.TextDocument) {
@@ -198,6 +215,20 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // Отслеживаем ручное изменение текста для обновления цветов
+  let typingTimer: NodeJS.Timeout | undefined;
+  vscode.workspace.onDidChangeTextDocument(e => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || e.document !== editor.document) return;
+
+    if (e.document.languageId === 'logviewer' || e.document.uri.scheme === 'logviewer-lfs') {
+      if (typingTimer) clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        applyDecorations(editor);
+      }, 200); // Перекрашиваем через 200мс после того, как юзер закончил вносить правки
+    }
+  });
+
   context.subscriptions.push(
     vscode.commands.registerCommand("logviewer.openLog", openFullLog),
     vscode.commands.registerCommand("logviewer.filterInclude", () => {
@@ -228,14 +259,9 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.workspace.onDidOpenTextDocument(async doc => {
-      // 1. Игнорируем временные отформатированные файлы на диске
       if (doc.fileName.endsWith('.logviewer')) return;
-      // 2. Игнорируем файлы, открытые через обходчик больших файлов
       if (doc.uri.scheme === 'logviewer-lfs') return;
-      // 3. Игнорируем файлы, которые мы генерируем из ОЗУ
       if (doc.isUntitled && doc.languageId === 'logviewer') return;
-
-      // Теперь проверяем, является ли это файл целевым (например, .jsonlog)
       if (!isTargetExtension(doc.fileName)) return;
 
       processJsonLog(doc);
